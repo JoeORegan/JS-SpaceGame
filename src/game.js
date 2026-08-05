@@ -2,6 +2,7 @@ import { Input } from "./input.js";
 import { Ship } from "./entities/Ship.js";
 import { loadPlistAtlas } from "./gfx/loadPlistAtlas.js";
 import { drawFrame } from "./gfx/plistAtlas.js";
+import { ParallaxLayer, ParallaxSystem, loadImage } from "./gfx/parallax.js";
 
 export class Game {
     constructor(canvas) {
@@ -12,18 +13,88 @@ export class Game {
 
         this.atlas = null;
         this.lastTime = 0;
+
+        this.worldSpeed = 220; // px/sec to the left
+        this.parallax = new ParallaxSystem();
     }
 
     async start() {
-        this.atlas = await loadPlistAtlas(
-            "./assets/images/sprites/spritesheet.png",
-            "./assets/images/sprites/Sprites.plist"
+        const [
+            atlas,
+            spacedust,
+            galaxy,
+            planetsunrise,
+            anomaly1,
+            anomaly2
+        ] = await Promise.all([
+            loadPlistAtlas(
+                "./assets/images/sprites/spritesheet.png",
+                "./assets/images/sprites/Sprites.plist"
+            ),
+            loadImage("./assets/images/backgrounds/bg_front_spacedust.png"),
+            loadImage("./assets/images/backgrounds/bg_galaxy.png"),
+            loadImage("./assets/images/backgrounds/bg_planetsunrise.png"),
+            loadImage("./assets/images/backgrounds/bg_spacialanomaly.png"),
+            loadImage("./assets/images/backgrounds/bg_spacialanomaly2.png")
+        ]);
+
+        this.atlas = atlas;
+
+        // back -> front
+        this.parallax.addLayer(
+            new ParallaxLayer({
+                image: galaxy,
+                y: this.canvas.height * 0.08,
+                speed: 0.05,
+                scale: 1.0,
+                alpha: 0.75,
+                gap: 120
+            })
         );
 
-        console.log("Atlas frames:", Object.keys(this.atlas.frames));
-        // Optional: check specific frames
-        console.log("Has SpaceFlier_sm_1.png:", !!this.atlas.frames["SpaceFlier_sm_1.png"]);
-        console.log("Has SpaceFlier_sm_2.png:", !!this.atlas.frames["SpaceFlier_sm_2.png"]);
+        this.parallax.addLayer(
+            new ParallaxLayer({
+                image: planetsunrise,
+                y: this.canvas.height * 0.52,
+                speed: 0.06,
+                scale: 0.95,
+                alpha: 0.95,
+                gap: 450
+            })
+        );
+
+        this.parallax.addLayer(
+            new ParallaxLayer({
+                image: anomaly1,
+                y: this.canvas.height * 0.22,
+                speed: 0.07,
+                scale: 1.0,
+                alpha: 0.9,
+                gap: 700
+            })
+        );
+
+        this.parallax.addLayer(
+            new ParallaxLayer({
+                image: anomaly2,
+                y: this.canvas.height * 0.70,
+                speed: 0.075,
+                scale: 1.0,
+                alpha: 0.9,
+                gap: 900
+            })
+        );
+
+        this.parallax.addLayer(
+            new ParallaxLayer({
+                image: spacedust,
+                y: (this.canvas.height - spacedust.height) / 2,
+                speed: 0.1,
+                scale: 1.0,
+                alpha: 1.0,
+                gap: 0
+            })
+        );
 
         requestAnimationFrame(t => this.loop(t));
     }
@@ -39,6 +110,7 @@ export class Game {
     }
 
     update(dt) {
+        this.parallax.update(dt, this.worldSpeed);
         this.ship.update(dt, this.input, this.canvas.width, this.canvas.height);
     }
 
@@ -46,16 +118,18 @@ export class Game {
         const { ctx, canvas } = this;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        if (!this.atlas) return;
+        this.parallax.draw(ctx, canvas.width, canvas.height);
 
-        drawFrame(
-            ctx,
-            this.atlas.image,
-            this.atlas.frames,
-            this.ship.getCurrentFrame(),
-            this.ship.x,
-            this.ship.y,
-            { scale: this.ship.scale, anchorX: 0.5, anchorY: 0.5 }
-        );
+        if (this.atlas) {
+            drawFrame(
+                ctx,
+                this.atlas.image,
+                this.atlas.frames,
+                this.ship.getCurrentFrame(),
+                this.ship.x,
+                this.ship.y,
+                { scale: this.ship.scale, anchorX: 0.5, anchorY: 0.5 }
+            );
+        }
     }
 }
