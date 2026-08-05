@@ -11,6 +11,12 @@ function intersects(a, b) {
     return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }
 
+const GameState = {
+    PLAYING: "playing",
+    WON: "won",
+    LOST: "lost"
+};
+
 export class Game {
     constructor(canvas) {
         this.canvas = canvas;
@@ -28,8 +34,14 @@ export class Game {
         this.lasers = null;
 
         this.debug = false;
-        this.lives = 3;
+
+        this.initialLives = 3;
+        this.lives = this.initialLives;
         this.shipInvulnUntil = 0;
+
+        this.roundDurationSec = 30;
+        this.gameEndAtSec = 0;
+        this.state = GameState.PLAYING;
     }
 
     async start() {
@@ -68,7 +80,6 @@ export class Game {
             atlasImage: this.atlas.image,
             asteroidFrame: this.atlas.frames[asteroidKey]
         });
-        this.asteroidField.scheduleNext(performance.now() / 1000);
 
         this.lasers = new LaserPool({
             atlasImage: this.atlas.image,
@@ -83,7 +94,31 @@ export class Game {
         this.parallax.addLayer(new ParallaxLayer({ image: anomaly2, y: this.canvas.height * 0.70, speed: 0.075, scale: 1.0, alpha: 0.9, gap: 900 }));
         this.parallax.addLayer(new ParallaxLayer({ image: spacedust, y: (this.canvas.height - spacedust.height) / 2, speed: 0.1, scale: 1.0, alpha: 1.0, gap: 0 }));
 
+        this.resetRound();
         requestAnimationFrame((t) => this.loop(t));
+    }
+
+    resetRound() {
+        const nowSec = performance.now() / 1000;
+
+        this.state = GameState.PLAYING;
+        this.lives = this.initialLives;
+        this.shipInvulnUntil = 0;
+        this.gameEndAtSec = nowSec + this.roundDurationSec;
+
+        this.ship.x = this.canvas.width * 0.15;
+        this.ship.y = this.canvas.height * 0.5;
+
+        if (this.asteroidField) {
+            for (const a of this.asteroidField.pool) a.active = false;
+            this.asteroidField.nextIndex = 0;
+            this.asteroidField.scheduleNext(nowSec);
+        }
+
+        if (this.lasers) {
+            for (const l of this.lasers.pool) l.active = false;
+            this.lasers.nextIndex = 0;
+        }
     }
 
     getShipAABB() {
@@ -110,7 +145,6 @@ export class Game {
 
         this.update(dt);
         this.render();
-
         requestAnimationFrame((t) => this.loop(t));
     }
 
@@ -119,6 +153,14 @@ export class Game {
         if (this.input.wasPressed("o")) window.__PARALLAX_SEAMS__ = !window.__PARALLAX_SEAMS__;
         if (this.input.wasPressed("k")) this.worldSpeed = Math.max(20, this.worldSpeed - 20);
         if (this.input.wasPressed("l")) this.worldSpeed = Math.min(1200, this.worldSpeed + 20);
+
+        if (this.state !== GameState.PLAYING) {
+            if (this.input.wasPressed("r") || this.input.wasPressed("enter")) {
+                this.resetRound();
+            }
+            this.input.endFrame();
+            return;
+        }
 
         if (this.lasers && this.input.wasPressed(" ")) {
             this.lasers.fire(this.ship.x, this.ship.y, this.ship.scale ?? 1);
@@ -133,7 +175,6 @@ export class Game {
         if (this.asteroidField) this.asteroidField.update(dt, nowSec, this.canvas.width, this.canvas.height);
         if (this.lasers) this.lasers.update(dt, this.canvas.width);
 
-        // collisions
         if (this.asteroidField && this.lasers) {
             const asteroids = this.asteroidField.getActive();
             const lasers = this.lasers.getActive();
@@ -151,15 +192,20 @@ export class Game {
                     }
                 }
 
-                // ship collision (with invulnerability window)
                 if (a.active && nowSec >= this.shipInvulnUntil) {
                     if (intersects(aa, this.getShipAABB())) {
                         a.active = false;
                         this.lives = Math.max(0, this.lives - 1);
-                        this.shipInvulnUntil = nowSec + 1.0; // ~CCBlink 1 second
+                        this.shipInvulnUntil = nowSec + 1.0;
                     }
                 }
             }
+        }
+
+        if (this.lives <= 0) {
+            this.state = GameState.LOST;
+        } else if (nowSec >= this.gameEndAtSec) {
+            this.state = GameState.WON;
         }
 
         this.input.endFrame();
@@ -171,14 +217,13 @@ export class Game {
 
         this.parallax.draw(ctx, canvas.width, canvas.height);
         this.starField.draw(ctx);
-
         if (this.asteroidField) this.asteroidField.draw(ctx);
         if (this.lasers) this.lasers.draw(ctx);
 
         if (this.atlas) {
             const nowSec = performance.now() / 1000;
             const blink = nowSec < this.shipInvulnUntil && Math.floor(nowSec * 20) % 2 === 0;
-            if (!blink) {
+            if (!blink && this.state === GameState.PLAYING) {
                 drawFrame(
                     ctx,
                     this.atlas.image,
@@ -191,10 +236,24 @@ export class Game {
             }
         }
 
-        // simple HUD lives
+        const nowSec = performance.now() / 1000;
+        const remaining = Math.max(0, Math.ceil(this.gameEndAtSec - nowSec));
+
         ctx.fillStyle = "#ffffff";
-        ctx.font = "28px sans-serif";
-        ctx.fillText(String(this.lives), 20, 40);
+        ctx.font = "24px sans-serif";
+        ctx.fillText(`Lives: ${this.lives}`, 20, 36);
+        ctx.fillText(`Time: ${remaining}`, 20, 68);
+
+        if (this.state !== GameState.PLAYING) {
+            const msg = this.state === GameState.WON ? "You Win" : "You Lose";
+            ctx.textAlign = "center";
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "64px sans-serif";
+            ctx.fillText(msg, canvas.width * 0.5, canvas.height * 0.45);
+            ctx.font = "28px sans-serif";
+            ctx.fillText("Press R or Enter to Restart", canvas.width * 0.5, canvas.height * 0.58);
+            ctx.textAlign = "start";
+        }
 
         if (this.debug) this.parallax.drawDebug(ctx);
     }
