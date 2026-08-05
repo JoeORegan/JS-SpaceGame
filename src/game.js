@@ -6,6 +6,7 @@ import { ParallaxLayer, ParallaxSystem, loadImage } from "./gfx/parallax.js";
 import { StarField, StarEmitter, loadStarEmitterConfig } from "./fx/stars.js";
 import { AsteroidField } from "./entities/AsteroidField.js";
 import { LaserPool } from "./entities/LaserPool.js";
+import { AudioManager } from "./audio/audio.js";
 
 function intersects(a, b) {
     return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
@@ -16,6 +17,12 @@ const GameState = {
     WON: "won",
     LOST: "lost"
 };
+
+function pickMusicPath() {
+    const a = document.createElement("audio");
+    const canOgg = !!a.canPlayType && a.canPlayType("audio/ogg; codecs=vorbis") !== "";
+    return canOgg ? "./assets/audio/music/SpaceGame.ogg" : "./assets/audio/music/SpaceGame.mp3";
+}
 
 export class Game {
     constructor(canvas) {
@@ -33,15 +40,25 @@ export class Game {
         this.asteroidField = null;
         this.lasers = null;
 
-        this.debug = false;
+        this.audio = new AudioManager();
+        this.audioUnlocked = false;
+        this.musicLoaded = false;
 
+        this.debug = false;
         this.initialLives = 3;
         this.lives = this.initialLives;
         this.shipInvulnUntil = 0;
-
         this.roundDurationSec = 30;
         this.gameEndAtSec = 0;
         this.state = GameState.PLAYING;
+    }
+
+    keyPressedAny(...keys) {
+        return keys.some((k) => this.input.wasPressed(k));
+    }
+
+    isFirePressed() {
+        return this.keyPressedAny(" ", "space", "Space", "spacebar");
     }
 
     async start() {
@@ -60,20 +77,28 @@ export class Game {
             loadStarEmitterConfig("./assets/particles/Stars3.plist")
         ]);
 
+        const musicPath = pickMusicPath();
+        await Promise.all([
+            this.audio.loadMusic(musicPath, { volume: 0.35, loop: true }),
+            this.audio.loadEffect("explosion", "./assets/audio/sfx/explosion_large.wav", { volume: 0.75, poolSize: 8 }),
+            this.audio.loadEffect("laser", "./assets/audio/sfx/laser_ship.wav", { volume: 0.8, poolSize: 8 }),
+            this.audio.loadEffect("shipHit", "./assets/audio/sfx/shake.wav", { volume: 0.75, poolSize: 4 })
+        ]);
+        this.musicLoaded = true;
+
         this.starField.addEmitter(new StarEmitter(s1, this.canvas.width, this.canvas.height));
         this.starField.addEmitter(new StarEmitter(s2, this.canvas.width, this.canvas.height));
         this.starField.addEmitter(new StarEmitter(s3, this.canvas.width, this.canvas.height));
 
         this.atlas = atlas;
         const keys = Object.keys(this.atlas.frames || {});
-
         const asteroidKey = keys.find((k) => k === "asteroid.png") || keys.find((k) => /asteroid/i.test(k));
-        if (!asteroidKey) throw new Error("Asteroid frame not found in Sprites.plist");
-
         const laserKey =
             keys.find((k) => k === "laserbeam_blue.png") ||
             keys.find((k) => /laserbeam_blue/i.test(k)) ||
             keys.find((k) => /laser/i.test(k));
+
+        if (!asteroidKey) throw new Error("Asteroid frame not found in Sprites.plist");
         if (!laserKey) throw new Error("Laser frame not found in Sprites.plist");
 
         this.asteroidField = new AsteroidField({
@@ -98,14 +123,18 @@ export class Game {
         requestAnimationFrame((t) => this.loop(t));
     }
 
+    unlockAudioIfNeeded() {
+        if (this.audioUnlocked || !this.musicLoaded) return;
+        this.audioUnlocked = true;
+        this.audio.playMusic();
+    }
+
     resetRound() {
         const nowSec = performance.now() / 1000;
-
         this.state = GameState.PLAYING;
         this.lives = this.initialLives;
         this.shipInvulnUntil = 0;
         this.gameEndAtSec = nowSec + this.roundDurationSec;
-
         this.ship.x = this.canvas.width * 0.15;
         this.ship.y = this.canvas.height * 0.5;
 
@@ -129,12 +158,7 @@ export class Game {
         const fh = raw?.h ?? raw?.height ?? 64;
         const w = fw * this.ship.scale;
         const h = fh * this.ship.scale;
-        return {
-            left: this.ship.x - w * 0.5,
-            top: this.ship.y - h * 0.5,
-            right: this.ship.x + w * 0.5,
-            bottom: this.ship.y + h * 0.5
-        };
+        return { left: this.ship.x - w * 0.5, top: this.ship.y - h * 0.5, right: this.ship.x + w * 0.5, bottom: this.ship.y + h * 0.5 };
     }
 
     loop(timestamp) {
@@ -145,6 +169,7 @@ export class Game {
 
         this.update(dt);
         this.render();
+
         requestAnimationFrame((t) => this.loop(t));
     }
 
@@ -154,16 +179,34 @@ export class Game {
         if (this.input.wasPressed("k")) this.worldSpeed = Math.max(20, this.worldSpeed - 20);
         if (this.input.wasPressed("l")) this.worldSpeed = Math.min(1200, this.worldSpeed + 20);
 
+        if (this.input.wasPressed("m")) {
+            this.audio.toggleEnabled();
+            if (this.audio.enabled) this.unlockAudioIfNeeded();
+        }
+
+        const firePressed = this.isFirePressed();
+        const anyGesture =
+            firePressed ||
+            this.input.wasPressed("w") ||
+            this.input.wasPressed("s") ||
+            this.input.wasPressed("arrowup") ||
+            this.input.wasPressed("arrowdown") ||
+            this.input.wasPressed("enter");
+
+        if (anyGesture) {
+            this.unlockAudioIfNeeded();
+            if (this.audio.enabled) this.audio.playMusic(); // retry in case browser delayed first play
+        }
+
         if (this.state !== GameState.PLAYING) {
-            if (this.input.wasPressed("r") || this.input.wasPressed("enter")) {
-                this.resetRound();
-            }
+            if (this.input.wasPressed("r") || this.input.wasPressed("enter")) this.resetRound();
             this.input.endFrame();
             return;
         }
 
-        if (this.lasers && this.input.wasPressed(" ")) {
+        if (this.lasers && firePressed) {
             this.lasers.fire(this.ship.x, this.ship.y, this.ship.scale ?? 1);
+            this.audio.playEffect("laser");
         }
 
         this.parallax.update(dt, this.worldSpeed);
@@ -171,7 +214,6 @@ export class Game {
         this.ship.update(dt, this.input, this.canvas.width, this.canvas.height);
 
         const nowSec = performance.now() / 1000;
-
         if (this.asteroidField) this.asteroidField.update(dt, nowSec, this.canvas.width, this.canvas.height);
         if (this.lasers) this.lasers.update(dt, this.canvas.width);
 
@@ -188,25 +230,22 @@ export class Game {
                     if (intersects(aa, l.getAABB())) {
                         a.active = false;
                         l.active = false;
+                        this.audio.playEffect("explosion");
                         break;
                     }
                 }
 
-                if (a.active && nowSec >= this.shipInvulnUntil) {
-                    if (intersects(aa, this.getShipAABB())) {
-                        a.active = false;
-                        this.lives = Math.max(0, this.lives - 1);
-                        this.shipInvulnUntil = nowSec + 1.0;
-                    }
+                if (a.active && nowSec >= this.shipInvulnUntil && intersects(aa, this.getShipAABB())) {
+                    a.active = false;
+                    this.lives = Math.max(0, this.lives - 1);
+                    this.shipInvulnUntil = nowSec + 1.0;
+                    this.audio.playEffect("shipHit");
                 }
             }
         }
 
-        if (this.lives <= 0) {
-            this.state = GameState.LOST;
-        } else if (nowSec >= this.gameEndAtSec) {
-            this.state = GameState.WON;
-        }
+        if (this.lives <= 0) this.state = GameState.LOST;
+        else if (nowSec >= this.gameEndAtSec) this.state = GameState.WON;
 
         this.input.endFrame();
     }
@@ -224,15 +263,11 @@ export class Game {
             const nowSec = performance.now() / 1000;
             const blink = nowSec < this.shipInvulnUntil && Math.floor(nowSec * 20) % 2 === 0;
             if (!blink && this.state === GameState.PLAYING) {
-                drawFrame(
-                    ctx,
-                    this.atlas.image,
-                    this.atlas.frames,
-                    this.ship.getCurrentFrame(),
-                    this.ship.x,
-                    this.ship.y,
-                    { scale: this.ship.scale, anchorX: 0.5, anchorY: 0.5 }
-                );
+                drawFrame(ctx, this.atlas.image, this.atlas.frames, this.ship.getCurrentFrame(), this.ship.x, this.ship.y, {
+                    scale: this.ship.scale,
+                    anchorX: 0.5,
+                    anchorY: 0.5
+                });
             }
         }
 
@@ -243,6 +278,7 @@ export class Game {
         ctx.font = "24px sans-serif";
         ctx.fillText(`Lives: ${this.lives}`, 20, 36);
         ctx.fillText(`Time: ${remaining}`, 20, 68);
+        ctx.fillText(`Audio: ${this.audio.enabled ? "On" : "Off"} (M)`, 20, 100);
 
         if (this.state !== GameState.PLAYING) {
             const msg = this.state === GameState.WON ? "You Win" : "You Lose";
