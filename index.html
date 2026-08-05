@@ -1,27 +1,82 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Space Game</title>
   <style>
-    html, body {
+    html,
+    body {
       margin: 0;
       height: 100%;
       background: #000;
-      overflow: hidden;
-      font-family: system-ui, sans-serif;
+      color: #cfe8ff;
+      font-family: Arial, sans-serif;
     }
-    #game {
-      display: block;
-      margin: 0 auto;
-      background: #000;
-      image-rendering: pixelated;
+
+    .wrap {
+      height: 100%;
+      display: grid;
+      place-items: center;
+      gap: 8px;
+    }
+
+    canvas {
+      border: 1px solid #223;
+      outline: none;
+      /* we’ll provide focus style manually if wanted */
+      image-rendering: auto;
+    }
+
+    .hud {
+      font-size: 13px;
+      opacity: 0.9;
+      user-select: none;
+    }
+
+    .kbd {
+      display: inline-block;
+      border: 1px solid #456;
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      padding: 1px 6px;
+      margin: 0 2px;
+      background: #0d1520;
     }
   </style>
 </head>
+
 <body>
-  <canvas id="game" width="960" height="540"></canvas>
-  <script type="module" src="./src/main.js"></script>
+  <div class="wrap">
+    <canvas id="game" width="960" height="540" tabindex="0" aria-label="Space game canvas"></canvas>
+
+    <div class="hud">
+      Click canvas to focus.
+      <span class="kbd">P</span> Debug
+      <span class="kbd">O</span> Seams
+      <span class="kbd">K</span>/<span class="kbd">L</span> Speed -
+    </div>
+  </div>
+
+  <script type="module">
+    import { Game } from "./src/game.js";
+
+    const canvas = document.getElementById("game");
+
+    // Ensure keyboard events go to the page/canvas context
+    canvas.addEventListener("click", () => canvas.focus());
+    window.addEventListener("load", () => canvas.focus());
+
+    // Optional: prevent page scrolling for gameplay keys
+    window.addEventListener("keydown", (e) => {
+      const blocked = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "];
+      if (blocked.includes(e.key)) e.preventDefault();
+    }, { passive: false });
+
+    const game = new Game(canvas);
+    game.start();
+  </script>
 </body>
+
 </html>

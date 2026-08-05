@@ -16,6 +16,8 @@ export class Game {
 
         this.worldSpeed = 220; // px/sec to the left
         this.parallax = new ParallaxSystem();
+
+        this.debug = false;
     }
 
     async start() {
@@ -100,7 +102,12 @@ export class Game {
     }
 
     loop(timestamp) {
-        const dt = Math.min((timestamp - this.lastTime) / 1000, 0.033);
+        if (!Number.isFinite(this.lastTime) || this.lastTime === 0) {
+            this.lastTime = timestamp;
+        }
+
+        const dtRaw = (timestamp - this.lastTime) / 1000;
+        const dt = Math.min(Math.max(dtRaw, 0), 0.033);
         this.lastTime = timestamp;
 
         this.update(dt);
@@ -110,8 +117,21 @@ export class Game {
     }
 
     update(dt) {
+        if (this.input.wasPressed("p")) {
+            this.debug = !this.debug;
+        }
+
+        if (this.input.wasPressed("o")) {
+            window.__PARALLAX_SEAMS__ = !window.__PARALLAX_SEAMS__;
+        }
+
+        if (this.input.wasPressed("k")) this.worldSpeed = Math.max(20, this.worldSpeed - 20);
+        if (this.input.wasPressed("l")) this.worldSpeed = Math.min(1200, this.worldSpeed + 20);
+
         this.parallax.update(dt, this.worldSpeed);
         this.ship.update(dt, this.input, this.canvas.width, this.canvas.height);
+
+        this.input.endFrame();
     }
 
     render() {
@@ -130,6 +150,11 @@ export class Game {
                 this.ship.y,
                 { scale: this.ship.scale, anchorX: 0.5, anchorY: 0.5 }
             );
+        }
+
+        if (this.debug) {
+            // this.parallax.drawDebug(ctx, canvas.width, canvas.height);
+            this.parallax.drawDebug(ctx);
         }
     }
 }
