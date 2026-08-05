@@ -1,0 +1,10 @@
+{
+  "name": "js-spacegame",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Space Game: JavaScript version of Cocos2d tutorial",
+  "scripts": {
+    "start": "npx serve . -l 5500",
+    "dev": "npx serve . -l 5500"
+  }
+}

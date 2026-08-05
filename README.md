@@ -31,6 +31,7 @@ Tutorial source: <https://www.kodeco.com/2728-cocos2d-x-tutorial-for-ios-and-and
 - Particle starfield
 - Background music + sound effects
 - Debug toggles for tuning
+- Top menu + dark/light theme toggle
 
 ---
 
@@ -58,10 +59,28 @@ Tutorial source: <https://www.kodeco.com/2728-cocos2d-x-tutorial-for-ios-and-and
 
 ## Run Locally
 
-### VS Code Live Server
+### Option 1: npm (recommended)
+
+```bash
+npm install
+npm start
+```
+
+Then open: <http://127.0.0.1:5500/>
+
+### Option 2: VS Code Live Server
+
 1. Open project in VS Code
 2. Run **Live Server** on `index.html`
 3. Open in browser
+
+### Option 3: Python static server
+
+```bash
+python -m http.server 5500
+```
+
+Then open: <http://127.0.0.1:5500/>
 
 ---
 
@@ -82,7 +101,15 @@ src/
   game.js
   input.js
 index.html
+package.json
 ```
+
+---
+
+## Audio Notes
+
+- Background music uses `assets/audio/music/SpaceGame.ogg` with MP3 fallback.
+- Sound effects are loaded from `assets/audio/sfx/`.
 
 ---
 
