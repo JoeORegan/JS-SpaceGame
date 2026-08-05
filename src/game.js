@@ -1,5 +1,5 @@
 import { Input } from "./input.js";
-import { Ship } from "./entities/Ship.js";
+import { Ship } from "./entities/ship.js";
 import { loadPlistAtlas } from "./gfx/loadPlistAtlas.js";
 import { drawFrame } from "./gfx/plistAtlas.js";
 import { ParallaxLayer, ParallaxSystem, loadImage } from "./gfx/parallax.js";
