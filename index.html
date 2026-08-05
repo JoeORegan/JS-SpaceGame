@@ -9,53 +9,71 @@
     html,
     body {
       margin: 0;
+      padding: 0;
+      background: #0b0f1a;
+      color: #d7e3ff;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       height: 100%;
-      background: #000;
-      color: #cfe8ff;
-      font-family: Arial, sans-serif;
     }
 
     .wrap {
-      height: 100%;
       display: grid;
       place-items: center;
-      gap: 8px;
+      min-height: 100%;
+      gap: 10px;
+      padding: 12px;
+      box-sizing: border-box;
     }
 
     canvas {
-      border: 1px solid #223;
+      background: #000;
+      border: 1px solid #2a3550;
+      max-width: 100%;
+      height: auto;
+      display: block;
       outline: none;
-      /* we’ll provide focus style manually if wanted */
-      image-rendering: auto;
+    }
+
+    canvas:focus {
+      box-shadow: 0 0 0 2px #4c8dff;
     }
 
     .hud {
+      width: min(1136px, 95vw);
       font-size: 13px;
-      opacity: 0.9;
-      user-select: none;
+      line-height: 1.4;
+      opacity: 0.95;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
     }
 
-    .kbd {
-      display: inline-block;
-      border: 1px solid #456;
-      border-bottom-width: 2px;
+    .keys code {
+      background: #1a2338;
+      border: 1px solid #31415f;
       border-radius: 4px;
       padding: 1px 6px;
-      margin: 0 2px;
-      background: #0d1520;
+      margin-right: 4px;
+      color: #fff;
     }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <canvas id="game" width="960" height="540" tabindex="0" aria-label="Space game canvas"></canvas>
+    <canvas id="game" width="1136" height="640" tabindex="0" aria-label="Space game canvas"></canvas>
 
     <div class="hud">
-      Click canvas to focus.
-      <span class="kbd">P</span> Debug
-      <span class="kbd">O</span> Seams
-      <span class="kbd">K</span>/<span class="kbd">L</span> Speed -
+      <div class="keys">
+        <strong>Controls:</strong>
+        <code>W</code>/<code>S</code> or <code>↑</code>/<code>↓</code> Move
+        <code>Space</code> Shoot
+        <code>P</code> Debug
+        <code>K</code>/<code>L</code> Speed -
+        <code>O</code> Parallax seams
+      </div>
+      <div id="focusState">Input: not focused</div>
     </div>
   </div>
 
@@ -63,15 +81,31 @@
     import { Game } from "./src/game.js";
 
     const canvas = document.getElementById("game");
+    const focusState = document.getElementById("focusState");
 
-    // Ensure keyboard events go to the page/canvas context
-    canvas.addEventListener("click", () => canvas.focus());
-    window.addEventListener("load", () => canvas.focus());
+    // Ensure canvas can receive keyboard input
+    const focusCanvas = () => {
+      canvas.focus({ preventScroll: true });
+      focusState.textContent = (document.activeElement === canvas)
+        ? "Input: canvas focused"
+        : "Input: not focused";
+    };
 
-    // Optional: prevent page scrolling for gameplay keys
+    canvas.addEventListener("pointerdown", focusCanvas);
+    canvas.addEventListener("click", focusCanvas);
+    window.addEventListener("load", focusCanvas);
+
+    // Optional fallback: keep focus when user clicks anywhere in page background
+    document.addEventListener("pointerdown", (e) => {
+      if (e.target === document.body || e.target === document.documentElement) {
+        focusCanvas();
+      }
+    });
+
+    // Prevent page scrolling on game keys
     window.addEventListener("keydown", (e) => {
-      const blocked = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "];
-      if (blocked.includes(e.key)) e.preventDefault();
+      const block = ["ArrowUp", "ArrowDown", " ", "Spacebar"];
+      if (block.includes(e.key)) e.preventDefault();
     }, { passive: false });
 
     const game = new Game(canvas);
