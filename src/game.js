@@ -3,6 +3,7 @@ import { Ship } from "./entities/Ship.js";
 import { loadPlistAtlas } from "./gfx/loadPlistAtlas.js";
 import { drawFrame } from "./gfx/plistAtlas.js";
 import { ParallaxLayer, ParallaxSystem, loadImage } from "./gfx/parallax.js";
+import { StarField, StarEmitter, loadStarEmitterConfig } from "./fx/stars.js";
 
 export class Game {
     constructor(canvas) {
@@ -17,6 +18,8 @@ export class Game {
 
         this.worldSpeed = 220; // px/sec to the left
         this.parallax = new ParallaxSystem();
+
+        this.starField = new StarField();
 
         this.debug = false;
     }
@@ -40,6 +43,16 @@ export class Game {
             loadImage("./assets/images/backgrounds/bg_spacialanomaly.png"),
             loadImage("./assets/images/backgrounds/bg_spacialanomaly2.png")
         ]);
+
+        const [s1, s2, s3] = await Promise.all([
+            loadStarEmitterConfig("./assets/particles/Stars1.plist"),
+            loadStarEmitterConfig("./assets/particles/Stars2.plist"),
+            loadStarEmitterConfig("./assets/particles/Stars3.plist")
+        ]);
+
+        this.starField.addEmitter(new StarEmitter(s1, this.canvas.width, this.canvas.height));
+        this.starField.addEmitter(new StarEmitter(s2, this.canvas.width, this.canvas.height));
+        this.starField.addEmitter(new StarEmitter(s3, this.canvas.width, this.canvas.height));
 
         this.atlas = atlas;
 
@@ -130,6 +143,7 @@ export class Game {
         if (this.input.wasPressed("l")) this.worldSpeed = Math.min(1200, this.worldSpeed + 20);
 
         this.parallax.update(dt, this.worldSpeed);
+        this.starField.update(dt);
         this.ship.update(dt, this.input, this.canvas.width, this.canvas.height);
 
         this.input.endFrame();
@@ -140,6 +154,7 @@ export class Game {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         this.parallax.draw(ctx, canvas.width, canvas.height);
+        this.starField.draw(ctx);
 
         if (this.atlas) {
             drawFrame(
