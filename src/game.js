@@ -1,11 +1,15 @@
 import { Input } from "./input.js";
-import { Ship } from "./entities/ShipX.js";
+import { Ship } from "./entities/Ship.js";
 import { loadPlistAtlas } from "./gfx/loadPlistAtlas.js";
 import { drawFrame } from "./gfx/plistAtlas.js";
 import { ParallaxLayer, ParallaxSystem, loadImage } from "./gfx/parallax.js";
 import { StarField, StarEmitter, loadStarEmitterConfig } from "./fx/stars.js";
 import { AsteroidField } from "./entities/AsteroidField.js";
 import { LaserPool } from "./entities/LaserPool.js";
+
+function intersects(a, b) {
+    return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
 
 export class Game {
     constructor(canvas) {
@@ -16,14 +20,16 @@ export class Game {
 
         this.atlas = null;
         this.lastTime = 0;
-
         this.worldSpeed = 220;
+
         this.parallax = new ParallaxSystem();
         this.starField = new StarField();
         this.asteroidField = null;
         this.lasers = null;
 
         this.debug = false;
+        this.lives = 3;
+        this.shipInvulnUntil = 0;
     }
 
     async start() {
@@ -49,12 +55,14 @@ export class Game {
         this.atlas = atlas;
         const keys = Object.keys(this.atlas.frames || {});
 
-        const asteroidKey =
-            keys.find((k) => k === "asteroid.png") ||
-            keys.find((k) => k === "asteroid") ||
-            keys.find((k) => /asteroid/i.test(k));
-
+        const asteroidKey = keys.find((k) => k === "asteroid.png") || keys.find((k) => /asteroid/i.test(k));
         if (!asteroidKey) throw new Error("Asteroid frame not found in Sprites.plist");
+
+        const laserKey =
+            keys.find((k) => k === "laserbeam_blue.png") ||
+            keys.find((k) => /laserbeam_blue/i.test(k)) ||
+            keys.find((k) => /laser/i.test(k));
+        if (!laserKey) throw new Error("Laser frame not found in Sprites.plist");
 
         this.asteroidField = new AsteroidField({
             atlasImage: this.atlas.image,
@@ -62,18 +70,11 @@ export class Game {
         });
         this.asteroidField.scheduleNext(performance.now() / 1000);
 
-        const laserKey =
-            keys.find((k) => k === "laserbeam_blue.png") ||
-            keys.find((k) => /laserbeam_blue/i.test(k)) ||
-            keys.find((k) => /laser/i.test(k));
-
-        if (!laserKey) throw new Error("Laser frame not found in Sprites.plist");
-
         this.lasers = new LaserPool({
             atlasImage: this.atlas.image,
             laserFrame: this.atlas.frames[laserKey],
             poolSize: 5,
-            speed: this.canvas.width / 0.5 // tutorial-ish: cross screen in ~0.5s
+            speed: this.canvas.width / 0.5
         });
 
         this.parallax.addLayer(new ParallaxLayer({ image: galaxy, y: this.canvas.height * 0.08, speed: 0.05, scale: 1.0, alpha: 0.75, gap: 120 }));
@@ -85,9 +86,24 @@ export class Game {
         requestAnimationFrame((t) => this.loop(t));
     }
 
+    getShipAABB() {
+        const frameName = this.ship.getCurrentFrame();
+        const f = this.atlas.frames[frameName];
+        const raw = f?.frame ?? f;
+        const fw = raw?.w ?? raw?.width ?? 64;
+        const fh = raw?.h ?? raw?.height ?? 64;
+        const w = fw * this.ship.scale;
+        const h = fh * this.ship.scale;
+        return {
+            left: this.ship.x - w * 0.5,
+            top: this.ship.y - h * 0.5,
+            right: this.ship.x + w * 0.5,
+            bottom: this.ship.y + h * 0.5
+        };
+    }
+
     loop(timestamp) {
         if (!Number.isFinite(this.lastTime) || this.lastTime === 0) this.lastTime = timestamp;
-
         const dtRaw = (timestamp - this.lastTime) / 1000;
         const dt = Math.min(Math.max(dtRaw, 0), 0.033);
         this.lastTime = timestamp;
@@ -104,7 +120,6 @@ export class Game {
         if (this.input.wasPressed("k")) this.worldSpeed = Math.max(20, this.worldSpeed - 20);
         if (this.input.wasPressed("l")) this.worldSpeed = Math.min(1200, this.worldSpeed + 20);
 
-        // shoot on Space
         if (this.lasers && this.input.wasPressed(" ")) {
             this.lasers.fire(this.ship.x, this.ship.y, this.ship.scale ?? 1);
         }
@@ -113,13 +128,38 @@ export class Game {
         this.starField.update(dt);
         this.ship.update(dt, this.input, this.canvas.width, this.canvas.height);
 
-        if (this.asteroidField) {
-            const nowSec = performance.now() / 1000;
-            this.asteroidField.update(dt, nowSec, this.canvas.width, this.canvas.height);
-        }
+        const nowSec = performance.now() / 1000;
 
-        if (this.lasers) {
-            this.lasers.update(dt, this.canvas.width);
+        if (this.asteroidField) this.asteroidField.update(dt, nowSec, this.canvas.width, this.canvas.height);
+        if (this.lasers) this.lasers.update(dt, this.canvas.width);
+
+        // collisions
+        if (this.asteroidField && this.lasers) {
+            const asteroids = this.asteroidField.getActive();
+            const lasers = this.lasers.getActive();
+
+            for (const a of asteroids) {
+                if (!a.active) continue;
+                const aa = a.getAABB();
+
+                for (const l of lasers) {
+                    if (!l.active) continue;
+                    if (intersects(aa, l.getAABB())) {
+                        a.active = false;
+                        l.active = false;
+                        break;
+                    }
+                }
+
+                // ship collision (with invulnerability window)
+                if (a.active && nowSec >= this.shipInvulnUntil) {
+                    if (intersects(aa, this.getShipAABB())) {
+                        a.active = false;
+                        this.lives = Math.max(0, this.lives - 1);
+                        this.shipInvulnUntil = nowSec + 1.0; // ~CCBlink 1 second
+                    }
+                }
+            }
         }
 
         this.input.endFrame();
@@ -136,16 +176,25 @@ export class Game {
         if (this.lasers) this.lasers.draw(ctx);
 
         if (this.atlas) {
-            drawFrame(
-                ctx,
-                this.atlas.image,
-                this.atlas.frames,
-                this.ship.getCurrentFrame(),
-                this.ship.x,
-                this.ship.y,
-                { scale: this.ship.scale, anchorX: 0.5, anchorY: 0.5 }
-            );
+            const nowSec = performance.now() / 1000;
+            const blink = nowSec < this.shipInvulnUntil && Math.floor(nowSec * 20) % 2 === 0;
+            if (!blink) {
+                drawFrame(
+                    ctx,
+                    this.atlas.image,
+                    this.atlas.frames,
+                    this.ship.getCurrentFrame(),
+                    this.ship.x,
+                    this.ship.y,
+                    { scale: this.ship.scale, anchorX: 0.5, anchorY: 0.5 }
+                );
+            }
         }
+
+        // simple HUD lives
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "28px sans-serif";
+        ctx.fillText(String(this.lives), 20, 40);
 
         if (this.debug) this.parallax.drawDebug(ctx);
     }

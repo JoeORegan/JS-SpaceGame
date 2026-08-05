@@ -5,18 +5,12 @@ function randBetween(low, high) {
 function parseFrameString(s) {
     const m = String(s).match(/\{\{\s*(-?\d+)\s*,\s*(-?\d+)\s*\},\s*\{\s*(\d+)\s*,\s*(\d+)\s*\}\}/);
     if (!m) return null;
-    return {
-        x: Number(m[1]),
-        y: Number(m[2]),
-        w: Number(m[3]),
-        h: Number(m[4])
-    };
+    return { x: Number(m[1]), y: Number(m[2]), w: Number(m[3]), h: Number(m[4]) };
 }
 
 function normalizeFrame(raw) {
     if (!raw) return null;
 
-    // nested frame object: { frame: {x,y,w,h}, ... }
     if (
         raw.frame &&
         typeof raw.frame === "object" &&
@@ -33,34 +27,25 @@ function normalizeFrame(raw) {
         };
     }
 
-    // direct frame object: {x,y,w,h}
     if (
         Number.isFinite(raw.x) &&
         Number.isFinite(raw.y) &&
         (Number.isFinite(raw.w) || Number.isFinite(raw.width)) &&
         (Number.isFinite(raw.h) || Number.isFinite(raw.height))
     ) {
-        return {
-            x: raw.x,
-            y: raw.y,
-            w: raw.w ?? raw.width,
-            h: raw.h ?? raw.height
-        };
+        return { x: raw.x, y: raw.y, w: raw.w ?? raw.width, h: raw.h ?? raw.height };
     }
 
-    // frame string in raw.frame
     if (typeof raw.frame === "string") {
         const f = parseFrameString(raw.frame);
         if (f) return f;
     }
 
-    // raw is frame string
     if (typeof raw === "string") {
         const f = parseFrameString(raw);
         if (f) return f;
     }
 
-    // textureRect style
     if (raw.textureRect && typeof raw.textureRect === "object") {
         const tr = raw.textureRect;
         if (
@@ -81,20 +66,18 @@ class Asteroid {
         this.atlasImage = atlasImage;
         this.frame = frame;
         this.active = false;
-
         this.x = 0;
         this.y = 0;
         this.vx = 0;
         this.scale = 1;
-
         this.rotation = 0;
         this.rotSpeed = 0;
     }
 
     spawn(canvasWidth, canvasHeight) {
         this.active = true;
-
         this.scale = randBetween(0.8, 1.3);
+
         const w = this.frame.w * this.scale;
         const h = this.frame.h * this.scale;
 
@@ -110,12 +93,22 @@ class Asteroid {
 
     update(dt) {
         if (!this.active) return;
-
         this.x += this.vx * dt;
         this.rotation += this.rotSpeed * dt;
 
         const w = this.frame.w * this.scale;
         if (this.x < -w * 0.7) this.active = false;
+    }
+
+    getAABB() {
+        const w = this.frame.w * this.scale;
+        const h = this.frame.h * this.scale;
+        return {
+            left: this.x - w * 0.5,
+            top: this.y - h * 0.5,
+            right: this.x + w * 0.5,
+            bottom: this.y + h * 0.5
+        };
     }
 
     draw(ctx) {
@@ -136,9 +129,7 @@ class Asteroid {
 export class AsteroidField {
     constructor({ atlasImage, asteroidFrame, poolSize = 15, spawnMin = 0.2, spawnMax = 1.0 }) {
         const frame = normalizeFrame(asteroidFrame);
-        if (!frame) {
-            throw new Error(`Asteroid frame format unsupported: ${JSON.stringify(asteroidFrame)}`);
-        }
+        if (!frame) throw new Error(`Asteroid frame format unsupported: ${JSON.stringify(asteroidFrame)}`);
 
         this.pool = Array.from({ length: poolSize }, () => new Asteroid(atlasImage, frame));
         this.nextIndex = 0;
@@ -162,8 +153,11 @@ export class AsteroidField {
             this.spawnOne(canvasWidth, canvasHeight);
             this.scheduleNext(nowSec);
         }
-
         for (const a of this.pool) a.update(dt);
+    }
+
+    getActive() {
+        return this.pool.filter((a) => a.active);
     }
 
     draw(ctx) {

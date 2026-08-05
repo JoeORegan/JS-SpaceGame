@@ -1,7 +1,6 @@
 function normalizeFrame(raw) {
     if (!raw) return null;
 
-    // nested frame object: { frame:{x,y,w,h}, ... }
     if (
         raw.frame &&
         typeof raw.frame === "object" &&
@@ -18,7 +17,6 @@ function normalizeFrame(raw) {
         };
     }
 
-    // direct frame
     if (
         Number.isFinite(raw.x) &&
         Number.isFinite(raw.y) &&
@@ -41,7 +39,6 @@ class Laser {
         this.atlasImage = atlasImage;
         this.frame = frame;
         this.active = false;
-
         this.x = 0;
         this.y = 0;
         this.vx = 0;
@@ -66,6 +63,17 @@ class Laser {
         if (this.x > canvasWidth + w) this.active = false;
     }
 
+    getAABB() {
+        const w = this.frame.w * this.scale;
+        const h = this.frame.h * this.scale;
+        return {
+            left: this.x - w * 0.5,
+            top: this.y - h * 0.5,
+            right: this.x + w * 0.5,
+            bottom: this.y + h * 0.5
+        };
+    }
+
     draw(ctx) {
         if (!this.active) return;
 
@@ -73,7 +81,13 @@ class Laser {
         const dw = sw * this.scale;
         const dh = sh * this.scale;
 
-        ctx.drawImage(this.atlasImage, sx, sy, sw, sh, this.x - dw * 0.5, this.y - dh * 0.5, dw, dh);
+        ctx.drawImage(
+            this.atlasImage,
+            sx, sy, sw, sh,
+            this.x - dw * 0.5,
+            this.y - dh * 0.5,
+            dw, dh
+        );
     }
 }
 
@@ -95,6 +109,10 @@ export class LaserPool {
 
     update(dt, canvasWidth) {
         for (const l of this.pool) l.update(dt, canvasWidth);
+    }
+
+    getActive() {
+        return this.pool.filter((l) => l.active);
     }
 
     draw(ctx) {
