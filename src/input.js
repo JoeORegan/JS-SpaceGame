@@ -1,22 +1,41 @@
 export class Input {
-    constructor() {
+    constructor(targetElement = null) {
+        this.target = targetElement; // e.g. canvas
         this.keys = new Set();
         this.justPressed = new Set();
+        this.active = true;
+
+        // If target is provided, only accept input when it has focus
+        const isFocused = () => {
+            if (!this.target) return true;
+            return document.activeElement === this.target;
+        };
 
         window.addEventListener("keydown", (e) => {
+            this.active = isFocused();
+            if (!this.active) return;
+
             const key = e.key.toLowerCase();
 
+            // prevent browser scrolling for movement keys
             if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(key)) {
                 e.preventDefault();
             }
 
-            // one-shot key press tracking
             if (!this.keys.has(key)) this.justPressed.add(key);
             this.keys.add(key);
-        });
+        }, { passive: false });
 
         window.addEventListener("keyup", (e) => {
+            this.active = isFocused();
+            if (!this.active) return;
             this.keys.delete(e.key.toLowerCase());
+        });
+
+        // Clear stuck keys on tab/window blur
+        window.addEventListener("blur", () => {
+            this.keys.clear();
+            this.justPressed.clear();
         });
     }
 

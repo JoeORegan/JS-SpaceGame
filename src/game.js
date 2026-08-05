@@ -8,7 +8,8 @@ export class Game {
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext("2d");
-        this.input = new Input();
+        // this.input = new Input();
+        this.input = new Input(canvas);
         this.ship = new Ship(canvas.width * 0.15, canvas.height * 0.5);
 
         this.atlas = null;
