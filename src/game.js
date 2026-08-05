@@ -4,12 +4,12 @@ import { loadPlistAtlas } from "./gfx/loadPlistAtlas.js";
 import { drawFrame } from "./gfx/plistAtlas.js";
 import { ParallaxLayer, ParallaxSystem, loadImage } from "./gfx/parallax.js";
 import { StarField, StarEmitter, loadStarEmitterConfig } from "./fx/stars.js";
+import { AsteroidField } from "./entities/AsteroidField.js";
 
 export class Game {
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext("2d");
-        // this.input = new Input();
         this.input = new Input(canvas);
         this.ship = new Ship(canvas.width * 0.15, canvas.height * 0.5);
 
@@ -18,21 +18,14 @@ export class Game {
 
         this.worldSpeed = 220; // px/sec to the left
         this.parallax = new ParallaxSystem();
-
         this.starField = new StarField();
+        this.asteroidField = null;
 
         this.debug = false;
     }
 
     async start() {
-        const [
-            atlas,
-            spacedust,
-            galaxy,
-            planetsunrise,
-            anomaly1,
-            anomaly2
-        ] = await Promise.all([
+        const [atlas, spacedust, galaxy, planetsunrise, anomaly1, anomaly2] = await Promise.all([
             loadPlistAtlas(
                 "./assets/images/sprites/spritesheet.png",
                 "./assets/images/sprites/Sprites.plist"
@@ -55,6 +48,35 @@ export class Game {
         this.starField.addEmitter(new StarEmitter(s3, this.canvas.width, this.canvas.height));
 
         this.atlas = atlas;
+
+        // ---- Debug frame keys ----
+        const keys = Object.keys(this.atlas.frames || {});
+        console.log("Atlas frame count:", keys.length);
+        console.log("Sample frame keys:", keys.slice(0, 40));
+        console.log("Asteroid-like keys:", keys.filter((k) => /asteroid/i.test(k)));
+
+        // ---- Robust asteroid frame lookup ----
+        const asteroidKey =
+            keys.find((k) => k === "asteroid.png") ||
+            keys.find((k) => k === "asteroid") ||
+            keys.find((k) => k === "Asteroid.png") ||
+            keys.find((k) => /asteroid/i.test(k));
+
+        if (!asteroidKey) {
+            throw new Error(
+                `Asteroid frame not found in Sprites.plist. First keys: ${keys.slice(0, 20).join(", ")}`
+            );
+        }
+
+        const asteroidFrame = this.atlas.frames[asteroidKey];
+        console.log("Using asteroid frame:", asteroidKey, asteroidFrame);
+
+        this.asteroidField = new AsteroidField({
+            atlasImage: this.atlas.image,
+            asteroidFrame
+        });
+
+        this.asteroidField.scheduleNext(performance.now() / 1000);
 
         // back -> front
         this.parallax.addLayer(
@@ -112,7 +134,7 @@ export class Game {
             })
         );
 
-        requestAnimationFrame(t => this.loop(t));
+        requestAnimationFrame((t) => this.loop(t));
     }
 
     loop(timestamp) {
@@ -127,7 +149,7 @@ export class Game {
         this.update(dt);
         this.render();
 
-        requestAnimationFrame(t => this.loop(t));
+        requestAnimationFrame((t) => this.loop(t));
     }
 
     update(dt) {
@@ -146,6 +168,11 @@ export class Game {
         this.starField.update(dt);
         this.ship.update(dt, this.input, this.canvas.width, this.canvas.height);
 
+        if (this.asteroidField) {
+            const nowSec = performance.now() / 1000;
+            this.asteroidField.update(dt, nowSec, this.canvas.width, this.canvas.height);
+        }
+
         this.input.endFrame();
     }
 
@@ -156,20 +183,19 @@ export class Game {
         this.parallax.draw(ctx, canvas.width, canvas.height);
         this.starField.draw(ctx);
 
+        if (this.asteroidField) {
+            this.asteroidField.draw(ctx);
+        }
+
         if (this.atlas) {
-            drawFrame(
-                ctx,
-                this.atlas.image,
-                this.atlas.frames,
-                this.ship.getCurrentFrame(),
-                this.ship.x,
-                this.ship.y,
-                { scale: this.ship.scale, anchorX: 0.5, anchorY: 0.5 }
-            );
+            drawFrame(ctx, this.atlas.image, this.atlas.frames, this.ship.getCurrentFrame(), this.ship.x, this.ship.y, {
+                scale: this.ship.scale,
+                anchorX: 0.5,
+                anchorY: 0.5
+            });
         }
 
         if (this.debug) {
-            // this.parallax.drawDebug(ctx, canvas.width, canvas.height);
             this.parallax.drawDebug(ctx);
         }
     }
