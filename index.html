@@ -1,146 +1,15 @@
 <!doctype html>
 <html lang="en-IE" data-theme="dark">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="author" content="Joe O'Regan" />
   <meta name="description" content="Space Game JavaScript" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="./css/styles.css" />
   <title>Space Game JS</title>
-
-  <style>
-    :root {
-      --bg: #0b0f1a;
-      --panel: #121a2b;
-      --text: #e8efff;
-      --muted: #9fb0d6;
-      --border: #2c3b61;
-      --btn: #1b2742;
-      --btn-text: #e8efff;
-      --link: #9ec1ff;
-      --canvas-bg: #000;
-    }
-
-    html[data-theme="light"] {
-      --bg: #eef3ff;
-      --panel: #ffffff;
-      --text: #10203f;
-      --muted: #4f638f;
-      --border: #c8d6f5;
-      --btn: #e7eeff;
-      --btn-text: #10203f;
-      --link: #204ea8;
-      --canvas-bg: #000;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      min-height: 100%;
-    }
-
-    .container {
-      width: min(1280px, 95vw);
-      margin: 0 auto;
-    }
-
-    .topbar {
-      border-bottom: 1px solid var(--border);
-      background: var(--panel);
-      position: sticky;
-      top: 0;
-      z-index: 20;
-    }
-
-    .topbar-row {
-      min-height: 56px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .topnav {
-      display: flex;
-      gap: 14px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .nav-link {
-      color: var(--link);
-      text-decoration: none;
-      border: 1px solid transparent;
-      border-radius: 8px;
-      padding: 6px 10px;
-    }
-
-    .nav-link:hover,
-    .nav-link.active {
-      border-color: var(--border);
-      background: color-mix(in srgb, var(--panel) 65%, var(--bg) 35%);
-    }
-
-    .theme-toggle {
-      border: 1px solid var(--border);
-      background: var(--btn);
-      color: var(--btn-text);
-      border-radius: 8px;
-      padding: 8px 12px;
-      cursor: pointer;
-    }
-
-    .page-content {
-      display: grid;
-      gap: 14px;
-      padding: 14px 0 24px;
-    }
-
-    .page-panel {
-      border: 1px solid var(--border);
-      background: var(--panel);
-      border-radius: 12px;
-      padding: 14px;
-    }
-
-    .canvas-wrap {
-      display: grid;
-      place-items: center;
-      margin-top: 8px;
-    }
-
-    canvas {
-      background: var(--canvas-bg);
-      border: 1px solid var(--border);
-      max-width: 100%;
-      height: auto;
-      display: block;
-      outline: none;
-    }
-
-    .muted {
-      color: var(--muted);
-    }
-
-    ul {
-      margin: 0;
-      padding-left: 20px;
-    }
-
-    code {
-      background: color-mix(in srgb, var(--panel) 75%, var(--bg) 25%);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 1px 6px;
-    }
-  </style>
 </head>
+
 <body>
   <header class="topbar">
     <div class="container topbar-row">
@@ -168,7 +37,7 @@
     <section class="page-panel">
       <h2>Controls</h2>
       <ul>
-        <li><b>Move:</b> <code>W</code>/<code>S</code> or <code>↑</code>/<code>↓</code></li>
+        <li><b>Move:</b> <code>ASDW</code> or <code>↑ ↓ ← →</code></li>
         <li><b>Fire:</b> <code>Space</code></li>
         <li><b>Restart:</b> <code>R</code> / <code>Enter</code></li>
         <li><b>Toggle Audio:</b> <code>M</code></li>
@@ -214,4 +83,5 @@
     game.start();
   </script>
 </body>
+
 </html>
