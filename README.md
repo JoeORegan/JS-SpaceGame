@@ -115,9 +115,7 @@ package.json
 
 ## Screenshots
 
-> Add your own screenshots after each milestone.
-
-![Gameplay screenshot](docs/images/screenshot-gameplay-01.png)
+![Gameplay screenshot](https://github.com/JoeORegan/joeoregan.github.io/blob/main/src/assets/spacegame/cover.jpg?raw=true)
 
 ---
 
