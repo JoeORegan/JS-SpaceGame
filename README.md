@@ -37,7 +37,7 @@ Tutorial source: <https://www.kodeco.com/2728-cocos2d-x-tutorial-for-ios-and-and
 
 ## Controls
 
-- **Move:** `W` / `S` or `↑` / `↓`
+- **Move:** `ASDW` or `↑ ↓ ← →`
 - **Fire:** `Space`
 - **Restart:** `R` or `Enter`
 - **Toggle Audio:** `M`
@@ -132,9 +132,10 @@ package.json
 
 ## Related Projects
 
-- [Space Quest JS](https://github.com/JoeORegan/JS-SpaceQuest)
 - [Antibody JavaScript](https://github.com/JoeORegan/JS-Antibody)
 - [Flappy Bird JavaScript](https://github.com/JoeORegan/JS-FlappyBird)
+- [Ninja Game JS](https://github.com/JoeORegan/JS-NinjaGame)
+- [Space Quest JS](https://github.com/JoeORegan/JS-SpaceQuest)
 
 ---
 
