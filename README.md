@@ -93,6 +93,7 @@ assets/
     sfx/
   images/
   particles/
+css/
 src/
   audio/
   entities/
